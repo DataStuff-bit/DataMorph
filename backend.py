@@ -17,27 +17,28 @@ app.config["JWT_SECRET_KEY"] = os.environ.get("JWT_SECRET_KEY", "super-secret")
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=1)
 jwt = JWTManager(app)
 
+# Health check route (RECOMMENDED for Render)
+@app.route("/", methods=["GET"])
+def index():
+    return jsonify({"msg": "Flask backend is running"}), 200
 
 # --- Error Handling Decorator ---
-# --- Error Handling Decorator ---
 def handle_db_errors(func):
-    """Decorator to handle database connection errors."""
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        conn = None  # Initialize conn here
+        conn = None
         try:
             conn = get_db_connection()
-            return func(conn, *args, **kwargs)  # Pass the connection to the route function
+            return func(conn, *args, **kwargs)
         except Exception as e:
-            logging.error(f"Database or other error in {func.__name__}: {e}")
+            logging.error(f"Error in {func.__name__}: {e}")
             if conn:
-                conn.rollback()  # Rollback the transaction in case of error
+                conn.rollback()
             return jsonify({"msg": f"Internal server error: {str(e)}"}), 500
         finally:
             if conn:
                 conn.close()
     return wrapper
-
 
 # --- Routes ---
 @app.route('/signup', methods=['POST'])
@@ -71,13 +72,10 @@ def signup(conn):
         )
         conn.commit()
         return jsonify({"msg": "User created successfully"}), 201
-
     except Exception as e:
         conn.rollback()
         logging.error(f"Signup error: {e}")
         return jsonify({"msg": f"Database error: {str(e)}"}), 500
-
-
 
 @app.route('/login', methods=['POST'])
 @handle_db_errors
@@ -98,8 +96,6 @@ def login(conn):
 
     token = create_access_token(identity=email)
     return jsonify(access_token=token), 200
-
-
 
 @app.route('/calculate-child-model', methods=['POST'])
 @jwt_required()
@@ -138,7 +134,8 @@ def calculate_child_model(conn):
             (post_id, severity, impact, datetime.utcnow()),
         )
 
-
+    conn.commit()
+    return jsonify({"msg": "Model data saved"}), 201
 
 @app.route('/posts-by-owner', methods=['GET'])
 @jwt_required()
@@ -152,8 +149,6 @@ def get_posts_by_owner(conn):
     posts = cursor.fetchall()
     return jsonify(posts), 200
 
-
-
 @app.route('/public-posts', methods=['GET'])
 @handle_db_errors
 def get_public_posts(conn):
@@ -161,8 +156,6 @@ def get_public_posts(conn):
     cursor.execute("SELECT * FROM posts WHERE is_public = TRUE")
     posts = cursor.fetchall()
     return jsonify(posts), 200
-
-
 
 @app.route('/my-posts', methods=['GET'])
 @jwt_required()
@@ -181,6 +174,7 @@ def get_my_posts(conn):
     posts = cursor.fetchall()
     return jsonify(posts), 200
 
-
+# --- 🔧 Run with proper host/port for Render ---
 if __name__ == '__main__':
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
