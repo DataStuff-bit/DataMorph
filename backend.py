@@ -17,6 +17,14 @@ app.config["JWT_SECRET_KEY"] = os.environ.get("JWT_SECRET_KEY", "super-secret")
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=1)
 jwt = JWTManager(app)
 
+def get_db_connection():
+    return mysql.connector.connect(
+        host="localhost",
+        user="root",
+        password="shreyshukla12345",
+        database="anil_ps"
+    )
+
 # Health check route (RECOMMENDED for Render)
 @app.route("/", methods=["GET"])
 def index():
